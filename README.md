@@ -11,10 +11,13 @@ Windows and Linux. Built with [gpui-kit](https://gpui-kit.com).
 Install [mise](https://mise.jdx.dev), then `mise trust && mise run ci`. Linux also needs the
 gpui-kit build libraries:
 
-- Fedora: `sudo dnf install fontconfig-devel libxkbcommon-x11-devel`
-- Ubuntu: `sudo apt install libfontconfig-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev libssl-dev libzstd-dev libvulkan1`
+- Fedora: `sudo dnf install fontconfig-devel libxkbcommon-x11-devel systemd-devel`
+- Ubuntu: `sudo apt install libfontconfig-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev libssl-dev libzstd-dev libvulkan1 libudev-dev`
 
 Windows needs the MSVC toolchain and CMake.
+
+On Linux, switching monitors needs access to `/dev/i2c-*`: load the `i2c-dev` module and add
+your user to a group that owns those devices (usually `i2c`).
 
 Licensed under the MIT license.
 
