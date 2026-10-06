@@ -30,3 +30,16 @@ lto = "thin"
 codegen-units = 1
 strip = true
 panic = "abort"
+
+# Keep the UI framework optimized in dev builds; the app crates stay debuggable.
+# https://gpui-kit.com/docs/installation
+[profile.dev.package]
+gpui-pre = { opt-level = 3 }
+gpui-component = { opt-level = 3 }
+gpui-kit = { opt-level = 3 }
+gpui-kit-assets = { opt-level = 3 }
+gpui-pre-macros = { opt-level = 3 }
+gpui-pre-platform = { opt-level = 3 }
+rustybuzz = { opt-level = 3 }
+taffy = { opt-level = 3 }
+ttf-parser = { opt-level = 3 }
