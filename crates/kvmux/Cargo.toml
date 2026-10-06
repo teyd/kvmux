@@ -1,0 +1,15 @@
+[package]
+name = "kvmux"
+description = "Switch monitor inputs when a USB device connects"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kvmux-core = { path = "../kvmux-core" }
+
+[lints]
+workspace = true
