@@ -11,7 +11,7 @@ use gpui_kit::{
 };
 
 use crate::instance;
-use crate::settings::SettingsView;
+use crate::settings::{Refresh, Save, SettingsView};
 use crate::tray::{self, TrayAction};
 use crate::update::{self, CheckOutcome, UpdateState};
 
@@ -73,10 +73,7 @@ pub fn run(options: Options) -> ExitCode {
         .with_assets(gpui_kit::assets::Assets)
         .with_quit_mode(QuitMode::Explicit)
         .run(move |cx| {
-            gpui_kit::init(cx);
-            cx.set_app_identity(APP_ID, "kvmux");
-            cx.bind_keys([KeyBinding::new("secondary-q", Quit, None)]);
-            cx.on_action(|_: &Quit, cx| cx.quit());
+            init(cx);
 
             let wake = sender.clone();
             let tray = tray::spawn(move || {
@@ -208,6 +205,19 @@ impl Controller {
     }
 }
 
+/// Initializes the components and the application's keyboard commands once.
+pub fn init(cx: &mut App) {
+    gpui_kit::init(cx);
+    cx.set_app_identity(APP_ID, "kvmux");
+    cx.bind_keys([
+        KeyBinding::new("secondary-q", Quit, None),
+        KeyBinding::new("secondary-s", Save, Some("Settings")),
+        KeyBinding::new("enter", Save, Some("Settings")),
+        KeyBinding::new("secondary-r", Refresh, Some("Settings")),
+    ]);
+    cx.on_action(|_: &Quit, cx| cx.quit());
+}
+
 /// Opens the settings window, or brings the existing one to the front.
 pub fn open_settings(cx: &mut App) {
     if let Some(SettingsWindow(handle)) = cx.try_global::<SettingsWindow>() {
@@ -225,17 +235,23 @@ pub fn open_settings(cx: &mut App) {
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
             None,
-            size(px(520.), px(400.)),
+            // Native window bounds are a physical platform boundary, not UI spacing.
+            size(px(600.), px(720.)),
             cx,
         ))),
-        window_min_size: Some(size(px(400.), px(300.))),
+        window_min_size: Some(size(px(420.), px(400.))),
         ..WindowOptions::default()
     };
-    match gpui_kit::open_window(options, cx, |_, cx| cx.new(|_| SettingsView::new())) {
+    match gpui_kit::open_window(options, cx, |window, cx| {
+        cx.new(|cx| SettingsView::new(window, cx))
+    }) {
         Ok((handle, _)) => {
             cx.set_global(SettingsWindow(handle));
             cx.activate(true);
         }
-        Err(error) => eprintln!("kvmux: could not open the settings window: {error:#}"),
+        Err(error) => {
+            eprintln!("kvmux: could not open the settings window: {error:#}");
+            cx.quit();
+        }
     }
 }

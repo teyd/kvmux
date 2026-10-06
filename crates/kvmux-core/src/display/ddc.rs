@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use ddc_hi::{Ddc as _, Display};
 
-use super::id::{EdidFields, edid_id, make_unique};
+use super::id::{EdidFields, edid_id};
 use super::{DisplayError, DisplaySource, MonitorInfo};
 use crate::input::Input;
 
@@ -27,11 +27,12 @@ impl DdcDisplays {
 impl DisplaySource for DdcDisplays {
     fn monitors(&mut self) -> Vec<MonitorInfo> {
         let mut displays = Display::enumerate();
-        let ids = unique_ids(&displays);
+        let ids: Vec<_> = displays.iter().map(stable_id).collect();
         displays
             .iter_mut()
             .zip(ids)
-            .map(|(display, id)| {
+            .filter_map(|(display, id)| {
+                let id = id?;
                 // Capabilities list the supported inputs. Some monitors never answer.
                 let _ = display.update_capabilities();
                 let current_input = retry(ATTEMPTS, PAUSE, || {
@@ -40,24 +41,21 @@ impl DisplaySource for DdcDisplays {
                 .ok()
                 // The input is in the low byte; the high byte is reserved.
                 .map(|value| Input::from_vcp_value((value.value() & 0xff) as u8));
-                MonitorInfo {
+                Some(MonitorInfo {
                     id,
                     label: label(display),
                     current_input,
                     supported_inputs: supported_inputs(display),
-                }
+                })
             })
             .collect()
     }
 
     fn set_input(&mut self, monitor_id: &str, input: Input) -> Result<(), DisplayError> {
         let mut displays = Display::enumerate();
-        let ids = unique_ids(&displays);
-        let display = displays
-            .iter_mut()
-            .zip(ids)
-            .find_map(|(display, id)| (id == monitor_id).then_some(display))
-            .ok_or_else(|| DisplayError::NotFound(monitor_id.to_owned()))?;
+        let ids: Vec<_> = displays.iter().map(stable_id).collect();
+        let ix = matching_display(&ids, monitor_id)?;
+        let display = &mut displays[ix];
         retry(ATTEMPTS, PAUSE, || {
             display
                 .handle
@@ -67,13 +65,23 @@ impl DisplaySource for DdcDisplays {
     }
 }
 
-fn unique_ids(displays: &[Display]) -> Vec<String> {
-    let mut ids: Vec<String> = displays.iter().map(stable_id).collect();
-    make_unique(&mut ids);
-    ids
+fn matching_display(ids: &[Option<String>], monitor_id: &str) -> Result<usize, DisplayError> {
+    let mut matches = ids
+        .iter()
+        .enumerate()
+        .filter(|(_, id)| id.as_deref() == Some(monitor_id));
+    let (ix, _) = matches
+        .next()
+        .ok_or_else(|| DisplayError::NotFound(monitor_id.to_owned()))?;
+    if matches.next().is_some() {
+        return Err(DisplayError::Ddc(format!(
+            "multiple displays share EDID {monitor_id:?}; disconnect the duplicate display or use monitors with unique EDID serials"
+        )));
+    }
+    Ok(ix)
 }
 
-fn stable_id(display: &Display) -> String {
+fn stable_id(display: &Display) -> Option<String> {
     let info = &display.info;
     let fields = EdidFields {
         manufacturer: info.manufacturer_id.clone(),
@@ -81,8 +89,8 @@ fn stable_id(display: &Display) -> String {
         serial_text: info.serial_number.clone(),
         serial_number: info.serial,
     };
-    // No EDID: the backend's own id is all there is. It can change when cables move.
-    edid_id(&fields).unwrap_or_else(|| format!("bus:{}:{}", info.backend, info.id))
+    // A bus path or discovery index is not a persistent monitor identity.
+    edid_id(&fields)
 }
 
 fn label(display: &Display) -> String {
@@ -129,6 +137,23 @@ fn retry<T, E: std::fmt::Display>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn identity_survives_reordering_and_ambiguous_edids_are_rejected() {
+        let mut ids = vec![Some("DEL:1:A".into()), None, Some("DEL:1:B".into())];
+        assert_eq!(matching_display(&ids, "DEL:1:B"), Ok(2));
+        ids.reverse();
+        assert_eq!(matching_display(&ids, "DEL:1:B"), Ok(0));
+        ids.push(Some("DEL:1:B".into()));
+        assert!(matches!(
+            matching_display(&ids, "DEL:1:B"),
+            Err(DisplayError::Ddc(_))
+        ));
+        assert!(matches!(
+            matching_display(&ids, "bus:1"),
+            Err(DisplayError::NotFound(_))
+        ));
+    }
 
     #[test]
     fn retries_until_it_works() {
