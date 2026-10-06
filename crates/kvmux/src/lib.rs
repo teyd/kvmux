@@ -2,4 +2,7 @@
 
 pub mod app;
 pub mod cli;
+pub mod instance;
 pub mod settings;
+pub mod tray;
+pub mod update;

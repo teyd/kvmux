@@ -3,10 +3,22 @@
 use std::process::ExitCode;
 
 use kvmux::cli;
+use kvmux::update::UPDATES;
 use kvmux_core::{DdcDisplays, NusbUsb};
 
 fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    // First, before anything else: when started as the update helper this installs the update
+    // and exits. Otherwise it only strips the update flags from the command line.
+    let launch = fastframe_update::intercept(&UPDATES);
+    if let Some(message) = &launch.error {
+        eprintln!("kvmux: {message}");
+    }
+    let args: Vec<String> = launch
+        .arguments
+        .iter()
+        .skip(1)
+        .map(|argument| argument.to_string_lossy().into_owned())
+        .collect();
 
     // The updater's helper probes new binaries with `--version`, expecting "<name> <version>".
     if args.iter().any(|arg| arg == "--version") {
@@ -39,10 +51,12 @@ fn main() -> ExitCode {
             }
         },
         _ => {
-            // Until the tray exists there is no way to open settings later, so show them by default.
             let background = args.iter().any(|arg| arg == "--background");
-            kvmux::app::run(!background);
-            ExitCode::SUCCESS
+            kvmux::app::run(kvmux::app::Options {
+                show_settings: !background,
+                relaunch_arguments: args,
+                receipt: launch.receipt,
+            })
         }
     }
 }
