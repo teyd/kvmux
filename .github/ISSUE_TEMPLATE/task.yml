@@ -1,0 +1,23 @@
+name: Task
+description: A unit of work, small enough for one pull request
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should be true when this is done?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checkable statements, ideally covered by tests.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Files and areas in scope
+    validations:
+      required: false
