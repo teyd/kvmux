@@ -14,6 +14,10 @@ ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste: unmaintained, via gpui-kit" },
     { id = "RUSTSEC-2026-0206", reason = "rustybuzz: unmaintained, via gpui-kit" },
     { id = "RUSTSEC-2026-0192", reason = "ttf-parser: unmaintained, via gpui-kit" },
+    # ddc-hi -> mccs-db parses only a YAML file bundled in the crate (include_bytes!). No monitor,
+    # config or network data reaches serde_yaml. The ddc-hi tree is old; replace it eventually.
+    { id = "RUSTSEC-2018-0005", reason = "serde_yaml 0.7: stack overflow on aliases, only bundled data is parsed" },
+    { id = "RUSTSEC-2024-0320", reason = "yaml-rust: unmaintained, via ddc-hi" },
 ]
 
 [licenses]
