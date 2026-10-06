@@ -36,6 +36,14 @@ impl UsbSource for FakeUsb {
         }
         Ok(event)
     }
+
+    fn poll_event(&mut self) -> Result<Option<UsbEvent>, UsbError> {
+        if self.events.is_empty() {
+            Ok(None)
+        } else {
+            self.wait_event().map(Some)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -70,5 +78,21 @@ mod tests {
     fn runs_dry_with_closed() {
         let mut usb = FakeUsb::default();
         assert_eq!(usb.wait_event(), Err(UsbError::Closed));
+    }
+
+    #[test]
+    fn polling_is_nonblocking_and_keeps_the_stream_usable() {
+        let mut usb = FakeUsb::default();
+        assert_eq!(usb.poll_event(), Ok(None));
+        usb.queue(UsbEvent::Connected(device(1)));
+        assert_eq!(usb.poll_event(), Ok(Some(UsbEvent::Connected(device(1)))));
+        assert_eq!(usb.devices().expect("devices"), [device(1)]);
+        assert_eq!(usb.poll_event(), Ok(None));
+        usb.queue(UsbEvent::Disconnected(device(1)));
+        assert_eq!(
+            usb.poll_event(),
+            Ok(Some(UsbEvent::Disconnected(device(1))))
+        );
+        assert!(usb.devices().expect("devices").is_empty());
     }
 }

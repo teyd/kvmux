@@ -37,28 +37,6 @@ pub(crate) fn edid_id(fields: &EdidFields) -> Option<String> {
     ))
 }
 
-/// Two identical monitors without serials get the same id; number the later ones
-/// (`DEL:41C3:`, `DEL:41C3:#2`) so each stays addressable.
-pub(crate) fn make_unique(ids: &mut [String]) {
-    for index in 1..ids.len() {
-        let base = ids[index].clone();
-        let seen = ids[..index]
-            .iter()
-            .filter(|other| strip_number(other) == base)
-            .count();
-        if seen > 0 {
-            ids[index] = format!("{base}#{}", seen + 1);
-        }
-    }
-}
-
-fn strip_number(id: &str) -> &str {
-    match id.rsplit_once('#') {
-        Some((base, number)) if number.chars().all(|c| c.is_ascii_digit()) => base,
-        _ => id,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,17 +77,5 @@ mod tests {
     #[test]
     fn no_manufacturer_means_no_id() {
         assert_eq!(edid_id(&EdidFields::default()), None);
-    }
-
-    #[test]
-    fn identical_monitors_are_numbered() {
-        let mut ids = vec![
-            "A".to_owned(),
-            "B".to_owned(),
-            "A".to_owned(),
-            "A".to_owned(),
-        ];
-        make_unique(&mut ids);
-        assert_eq!(ids, ["A", "B", "A#2", "A#3"]);
     }
 }

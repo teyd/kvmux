@@ -71,6 +71,10 @@ pub trait UsbSource {
     /// Blocks until a device connects or disconnects. Events for devices that were
     /// already listed by [`UsbSource::devices`] are not repeated.
     fn wait_event(&mut self) -> Result<UsbEvent, UsbError>;
+
+    /// Returns the next queued event without waiting, or `None` when idle.
+    /// Allows application owners to service commands and stop watching promptly.
+    fn poll_event(&mut self) -> Result<Option<UsbEvent>, UsbError>;
 }
 
 #[cfg(test)]

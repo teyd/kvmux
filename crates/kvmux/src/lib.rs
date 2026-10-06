@@ -1,8 +1,9 @@
-//! The kvmux application: background process, settings window.
+//! The kvmux single-window application and hardware diagnostics.
 
 pub mod app;
 pub mod cli;
 pub mod instance;
+mod runtime;
 pub mod settings;
 pub mod tray;
 pub mod update;

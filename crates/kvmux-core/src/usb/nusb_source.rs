@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use futures_lite::StreamExt as _;
 use futures_lite::future::block_on;
+use futures_lite::future::poll_once;
 use nusb::hotplug::{HotplugEvent, HotplugWatch};
 use nusb::{DeviceId, DeviceInfo, MaybeFuture as _};
 
@@ -55,6 +56,28 @@ impl UsbSource for NusbUsb {
                 HotplugEvent::Disconnected(id) => {
                     if let Some(device) = self.known.remove(&id) {
                         return Ok(UsbEvent::Disconnected(device));
+                    }
+                }
+            }
+        }
+    }
+
+    fn poll_event(&mut self) -> Result<Option<UsbEvent>, UsbError> {
+        loop {
+            match block_on(poll_once(self.watch.next())) {
+                None => return Ok(None),
+                Some(None) => return Err(UsbError::Closed),
+                Some(Some(HotplugEvent::Connected(info))) => {
+                    if self.known.contains_key(&info.id()) {
+                        continue;
+                    }
+                    let device = describe(&info);
+                    self.known.insert(info.id(), device.clone());
+                    return Ok(Some(UsbEvent::Connected(device)));
+                }
+                Some(Some(HotplugEvent::Disconnected(id))) => {
+                    if let Some(device) = self.known.remove(&id) {
+                        return Ok(Some(UsbEvent::Disconnected(device)));
                     }
                 }
             }
