@@ -4,9 +4,11 @@ use crate::config::UsbId;
 
 mod fake;
 mod kinds;
+mod nusb_source;
 
 pub use fake::FakeUsb;
 pub use kinds::{DeviceKinds, InterfaceClass};
+pub use nusb_source::NusbUsb;
 
 /// A USB device as the UI and the daemon see it.
 #[derive(Debug, Clone, PartialEq, Eq)]
