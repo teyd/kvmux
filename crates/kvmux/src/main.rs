@@ -26,6 +26,18 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    let _logging_guard = kvmux::logging::init();
+    tracing::info!(
+        version = env!("CARGO_PKG_VERSION"),
+        command = args.first().map_or("app", String::as_str),
+        "Starting kvmux"
+    );
+    let exit = run(args, launch.receipt);
+    tracing::info!(?exit, "kvmux stopped");
+    exit
+}
+
+fn run(args: Vec<String>, receipt: Option<fastframe_update::Receipt>) -> ExitCode {
     match args.first().map(String::as_str) {
         Some("monitors") => {
             println!("{}", cli::monitors_report(&mut DdcDisplays::new()));
@@ -40,12 +52,14 @@ fn main() -> ExitCode {
                         ExitCode::SUCCESS
                     }
                     Err(message) => {
+                        tracing::error!(%message, "Input switch failed");
                         eprintln!("kvmux: {message}");
                         ExitCode::FAILURE
                     }
                 }
             }
             _ => {
+                tracing::warn!("Missing set-input arguments");
                 eprintln!("usage: kvmux set-input <monitor-id> <input>");
                 ExitCode::from(2)
             }
@@ -55,7 +69,7 @@ fn main() -> ExitCode {
             kvmux::app::run(kvmux::app::Options {
                 show_settings: !background,
                 relaunch_arguments: args,
-                receipt: launch.receipt,
+                receipt,
             })
         }
     }
@@ -65,6 +79,7 @@ fn usb_command(watch: bool) -> ExitCode {
     let mut usb = match NusbUsb::new() {
         Ok(usb) => usb,
         Err(error) => {
+            tracing::error!(%error, "Could not initialize USB monitoring");
             eprintln!("kvmux: {error}");
             return ExitCode::FAILURE;
         }
@@ -72,6 +87,7 @@ fn usb_command(watch: bool) -> ExitCode {
     match cli::usb_report(&mut usb) {
         Ok(report) => println!("{report}"),
         Err(message) => {
+            tracing::error!(%message, "Could not enumerate USB devices");
             eprintln!("kvmux: {message}");
             return ExitCode::FAILURE;
         }
@@ -80,6 +96,7 @@ fn usb_command(watch: bool) -> ExitCode {
         println!("\nWatching for devices, press Ctrl-C to stop.");
         let ended = cli::watch_usb(&mut usb, |line| println!("{line}"));
         eprintln!("kvmux: {ended}");
+        tracing::error!(error = %ended, "USB watch ended");
         return ExitCode::FAILURE;
     }
     ExitCode::SUCCESS

@@ -250,7 +250,7 @@ pub fn open_settings(cx: &mut App) {
             cx.activate(true);
         }
         Err(error) => {
-            eprintln!("kvmux: could not open the settings window: {error:#}");
+            tracing::error!(error = %format!("{error:#}"), "Could not open the settings window");
             cx.quit();
         }
     }

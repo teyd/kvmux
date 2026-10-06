@@ -39,6 +39,21 @@ Windows needs the MSVC toolchain and CMake.
 On Linux, switching monitors needs access to `/dev/i2c-*`: load the `i2c-dev` module and add
 your user to a group that owns those devices (usually `i2c`).
 
+## Logs
+
+Each launch writes a new timestamped `kvmux-*.log` file and retains the newest **5**
+launch logs (including the current one). `--version` does not create a log.
+Logs also go to stderr; command output on stdout is unchanged.
+
+- Linux: `$XDG_STATE_HOME/kvmux/logs`, or `~/.local/state/kvmux/logs`.
+- Windows: `%LOCALAPPDATA%\kvmux\logs`.
+- macOS: `~/Library/Application Support/kvmux/logs`.
+
+By default, application events are logged at `info` and dependency events at `warn`.
+Set `RUST_LOG=kvmux=debug,kvmux_core=debug,warn` for more detail, or `RUST_LOG=trace`
+for all events. If file logging cannot start, the application continues with stderr
+logging. Files grow for the lifetime of a launch; there is no size-based rotation.
+
 Licensed under the MIT license.
 
 Inspired by [display-switch](https://github.com/haimgel/display-switch) by Haim Gelfenbeyn.

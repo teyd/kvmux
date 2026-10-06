@@ -5,6 +5,7 @@ use kvmux_core::{DisplaySource, Input, UsbDevice, UsbError, UsbEvent, UsbSource}
 /// One line per monitor: id, label, current input and supported inputs.
 pub fn monitors_report(displays: &mut dyn DisplaySource) -> String {
     let monitors = displays.monitors();
+    tracing::info!(count = monitors.len(), "Enumerated monitors");
     if monitors.is_empty() {
         return "No DDC/CI monitors found.".to_owned();
     }
@@ -37,6 +38,7 @@ pub fn monitors_report(displays: &mut dyn DisplaySource) -> String {
 /// One line per device, keyboards and mice first.
 pub fn usb_report(usb: &mut dyn UsbSource) -> Result<String, String> {
     let mut devices = usb.devices().map_err(|error| error.to_string())?;
+    tracing::info!(count = devices.len(), "Enumerated USB devices");
     devices.sort_by_key(|device| !device.kinds.is_peripheral());
     if devices.is_empty() {
         return Ok("No USB devices found.".to_owned());
@@ -52,8 +54,22 @@ pub fn usb_report(usb: &mut dyn UsbSource) -> Result<String, String> {
 pub fn watch_usb(usb: &mut dyn UsbSource, mut print: impl FnMut(String)) -> UsbError {
     loop {
         match usb.wait_event() {
-            Ok(UsbEvent::Connected(device)) => print(format!("+ {}", describe_device(&device))),
-            Ok(UsbEvent::Disconnected(device)) => print(format!("- {}", describe_device(&device))),
+            Ok(UsbEvent::Connected(device)) => {
+                tracing::info!(
+                    vendor_id = device.vendor_id,
+                    product_id = device.product_id,
+                    "USB device connected"
+                );
+                print(format!("+ {}", describe_device(&device)));
+            }
+            Ok(UsbEvent::Disconnected(device)) => {
+                tracing::info!(
+                    vendor_id = device.vendor_id,
+                    product_id = device.product_id,
+                    "USB device disconnected"
+                );
+                print(format!("- {}", describe_device(&device)));
+            }
             Err(error) => return error,
         }
     }
@@ -80,9 +96,11 @@ pub fn set_input_report(
     input: &str,
 ) -> Result<String, String> {
     let input: Input = input.parse().map_err(|error| format!("{error}"))?;
+    tracing::info!(monitor_id, %input, "Switching monitor input");
     displays
         .set_input(monitor_id, input)
         .map_err(|error| error.to_string())?;
+    tracing::info!(monitor_id, %input, "Monitor input switched");
     Ok(format!("{monitor_id}: switched to {input}"))
 }
 
