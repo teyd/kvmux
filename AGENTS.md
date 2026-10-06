@@ -23,6 +23,10 @@ Rust version lives in `mise.toml` and `rust-toolchain.toml`; keep them equal.
   Types: feat fix docs style refactor perf test build ci chore revert.
 - PRs are rebase-merged, so each commit lands on `main` as written.
 
+## Skills
+
+Before any UI work, load the `gpui-kit` and `gpui-kit-design-guides` skills (in `.agents/skills`, pinned by `skills-lock.json`).
+
 ## Rules
 
 - Hardware access (USB, DDC) goes behind traits in `kvmux-core` with fakes for tests.
@@ -35,6 +39,6 @@ Rust version lives in `mise.toml` and `rust-toolchain.toml`; keep them equal.
 
 ## Needs a human review, do not change on your own
 
-`.github/`, `scripts/`, `mise.toml`, `rust-toolchain.toml`, `deny.toml`, `Cargo.lock`,
+`.github/`, `.agents/`, `skills-lock.json`, `scripts/`, `mise.toml`, `rust-toolchain.toml`, `deny.toml`, `Cargo.lock`,
 anything in the updater, signing keys, or release code. Do not add or bump dependencies
 without saying why in the PR; fastframe crates are pinned by tag and reviewed by a human.
