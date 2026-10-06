@@ -9,7 +9,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+gpui-kit = "0.7.1"
 kvmux-core = { path = "../kvmux-core" }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+gpui-kit = { version = "0.7.1", features = ["test-support"] }
