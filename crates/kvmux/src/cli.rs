@@ -1,6 +1,6 @@
 //! Command-line helpers for trying the hardware layer without the GUI.
 
-use kvmux_core::{DisplaySource, Input};
+use kvmux_core::{DisplaySource, Input, UsbDevice, UsbError, UsbEvent, UsbSource};
 
 /// One line per monitor: id, label, current input and supported inputs.
 pub fn monitors_report(displays: &mut dyn DisplaySource) -> String {
@@ -34,6 +34,45 @@ pub fn monitors_report(displays: &mut dyn DisplaySource) -> String {
         .join("\n")
 }
 
+/// One line per device, keyboards and mice first.
+pub fn usb_report(usb: &mut dyn UsbSource) -> Result<String, String> {
+    let mut devices = usb.devices().map_err(|error| error.to_string())?;
+    devices.sort_by_key(|device| !device.kinds.is_peripheral());
+    if devices.is_empty() {
+        return Ok("No USB devices found.".to_owned());
+    }
+    Ok(devices
+        .iter()
+        .map(describe_device)
+        .collect::<Vec<_>>()
+        .join("\n"))
+}
+
+/// Prints every connect and disconnect until the source ends or fails.
+pub fn watch_usb(usb: &mut dyn UsbSource, mut print: impl FnMut(String)) -> UsbError {
+    loop {
+        match usb.wait_event() {
+            Ok(UsbEvent::Connected(device)) => print(format!("+ {}", describe_device(&device))),
+            Ok(UsbEvent::Disconnected(device)) => print(format!("- {}", describe_device(&device))),
+            Err(error) => return error,
+        }
+    }
+}
+
+fn describe_device(device: &UsbDevice) -> String {
+    let serial = device
+        .serial
+        .as_ref()
+        .map_or(String::new(), |serial| format!("  serial {serial}"));
+    format!(
+        "{:04x}:{:04x}  {}  [{}]{serial}",
+        device.vendor_id,
+        device.product_id,
+        device.name,
+        device.kinds.label(),
+    )
+}
+
 /// Switches one monitor and returns a line to print.
 pub fn set_input_report(
     displays: &mut dyn DisplaySource,
@@ -50,7 +89,7 @@ pub fn set_input_report(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kvmux_core::{FakeDisplays, MonitorInfo};
+    use kvmux_core::{DeviceKinds, FakeDisplays, FakeUsb, MonitorInfo};
 
     fn displays() -> FakeDisplays {
         FakeDisplays::new(vec![
@@ -101,5 +140,57 @@ mod tests {
         assert!(set_input_report(&mut fake, "DEL:41C3:ABC", "thunderbolt").is_err());
         assert!(set_input_report(&mut fake, "nope", "hdmi1").is_err());
         assert!(fake.switched().is_empty());
+    }
+
+    fn device(product_id: u16, name: &str, keyboard: bool, serial: Option<&str>) -> UsbDevice {
+        UsbDevice {
+            vendor_id: 0x046d,
+            product_id,
+            serial: serial.map(str::to_owned),
+            manufacturer: None,
+            name: name.into(),
+            kinds: DeviceKinds {
+                keyboard,
+                mouse: false,
+            },
+        }
+    }
+
+    #[test]
+    fn usb_report_lists_peripherals_first() {
+        let mut usb = FakeUsb::new(vec![
+            device(1, "Hub", false, None),
+            device(2, "Keyboard", true, Some("S1")),
+        ]);
+        let report = usb_report(&mut usb).expect("lists");
+        assert_eq!(
+            report,
+            "046d:0002  Keyboard  [Keyboard]  serial S1\n046d:0001  Hub  [Other]"
+        );
+    }
+
+    #[test]
+    fn usb_report_says_so_when_empty() {
+        assert_eq!(
+            usb_report(&mut FakeUsb::default()).as_deref(),
+            Ok("No USB devices found.")
+        );
+    }
+
+    #[test]
+    fn watch_prints_events_until_the_stream_ends() {
+        let mut usb = FakeUsb::default();
+        usb.queue(UsbEvent::Connected(device(2, "Keyboard", true, None)));
+        usb.queue(UsbEvent::Disconnected(device(2, "Keyboard", true, None)));
+        let mut lines = Vec::new();
+        let ended = watch_usb(&mut usb, |line| lines.push(line));
+        assert_eq!(ended, UsbError::Closed);
+        assert_eq!(
+            lines,
+            [
+                "+ 046d:0002  Keyboard  [Keyboard]",
+                "- 046d:0002  Keyboard  [Keyboard]"
+            ]
+        );
     }
 }
