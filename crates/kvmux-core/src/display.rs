@@ -2,8 +2,11 @@
 
 use crate::input::Input;
 
+mod ddc;
 mod fake;
+mod id;
 
+pub use ddc::DdcDisplays;
 pub use fake::FakeDisplays;
 
 /// A monitor as the UI and the daemon see it.
