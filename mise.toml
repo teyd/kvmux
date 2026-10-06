@@ -1,0 +1,25 @@
+# Keep the Rust version in step with rust-toolchain.toml (CI checks this).
+# Plain rustup and cargo work without mise.
+[tools]
+rust = { version = "1.98.1", components = "rustfmt,clippy" }
+"aqua:EmbarkStudios/cargo-deny" = "0.20.2"
+
+[tasks.fmt]
+description = "Check formatting"
+run = "cargo fmt --all --check"
+
+[tasks.lint]
+description = "Clippy, warnings are errors"
+run = "cargo clippy --workspace --all-targets --locked -- -D warnings"
+
+[tasks.test]
+description = "Run tests"
+run = "cargo test --workspace --locked"
+
+[tasks.deny]
+description = "Licenses, advisories, sources"
+run = "cargo deny check"
+
+[tasks.ci]
+description = "Everything CI runs"
+depends = ["fmt", "lint", "test", "deny"]
