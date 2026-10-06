@@ -16,6 +16,7 @@ nusb = "0.2.7"
 serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -27,6 +27,7 @@ impl DdcDisplays {
 impl DisplaySource for DdcDisplays {
     fn monitors(&mut self) -> Vec<MonitorInfo> {
         let mut displays = Display::enumerate();
+        tracing::debug!(count = displays.len(), "Discovered DDC/CI displays");
         let ids: Vec<_> = displays.iter().map(stable_id).collect();
         displays
             .iter_mut()
@@ -34,7 +35,9 @@ impl DisplaySource for DdcDisplays {
             .filter_map(|(display, id)| {
                 let id = id?;
                 // Capabilities list the supported inputs. Some monitors never answer.
-                let _ = display.update_capabilities();
+                if let Err(error) = display.update_capabilities() {
+                    tracing::debug!(monitor_id = %id, %error, "Could not read monitor capabilities");
+                }
                 let current_input = retry(ATTEMPTS, PAUSE, || {
                     display.handle.get_vcp_feature(INPUT_SOURCE)
                 })
@@ -125,8 +128,12 @@ fn retry<T, E: std::fmt::Display>(
     loop {
         match operation() {
             Ok(value) => return Ok(value),
-            Err(error) if attempt >= attempts => return Err(error),
-            Err(_) => {
+            Err(error) if attempt >= attempts => {
+                tracing::debug!(attempt, %error, "DDC operation exhausted retries");
+                return Err(error);
+            }
+            Err(error) => {
+                tracing::debug!(attempt, %error, "Retrying DDC operation");
                 attempt += 1;
                 sleep(pause);
             }
